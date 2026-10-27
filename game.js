@@ -72,6 +72,13 @@ const CONFIG = {
   BOSS_RADIUS: 1.0,            // v políčkách
   ATTACK_DURATION: 7,
   ATTACK_SPAWN_DELAY: 2.5,
+  BOSS_LASER_INTERVAL: 5,      // laser jednou za 5 s
+  BOSS_LASER_CHARGE: 1.1,      // nabíjení s mířidlem (čas na útěk)
+  BOSS_LASER_LOCK: 0.35,       // posledních x s nabíjení už nemíří, směr je zamčený
+  BOSS_LASER_FIRE: 0.5,        // jak dlouho paprsek svítí a zabíjí
+  BOSS_LASER_WIDTH: 0.9,       // šířka paprsku v políčkách
+  BOSS_LASER_HIT_PAD: 0.3,     // přídavek na poloměr Pac-Mana
+  BOSS_LASER_MAX_LEN: 40,
 
   // Časování obrazovek a kolize
   READY_TIME: 2,
@@ -306,6 +313,15 @@ const Sound = {
     }
   },
   bossBeat() { this.tone(75, 0.2, { type: 'sine', vol: 0.3, slide: 40 }); },
+  laserCharge() {
+    this.tone(180, CONFIG.BOSS_LASER_CHARGE, { type: 'sawtooth', vol: 0.08, slide: 1400 });
+    this.tone(90, CONFIG.BOSS_LASER_CHARGE, { type: 'square', vol: 0.05, slide: 700 });
+  },
+  laserFire() {
+    this.noise(0.5, 0.3);
+    this.tone(1200, 0.5, { type: 'sawtooth', vol: 0.16, slide: 80 });
+    this.tone(60, 0.5, { type: 'square', vol: 0.18, slide: 30 });
+  },
   bossHit() {
     this.noise(0.3, 0.35);
     this.tone(160, 0.35, { type: 'square', vol: 0.18, slide: 40 });
@@ -696,7 +712,13 @@ function placeBoss() {
 }
 
 function startBossIntro() {
-  game.boss = Object.assign(makeEntity(0, 0), { hp: CONFIG.BOSS_HP, maxHp: CONFIG.BOSS_HP, invuln: 0 });
+  game.boss = Object.assign(makeEntity(0, 0), {
+    hp: CONFIG.BOSS_HP,
+    maxHp: CONFIG.BOSS_HP,
+    invuln: 0,
+    laser: null,
+    laserTimer: laserCooldown(),
+  });
   placeBoss();
   game.attackItem = null;
   game.attackItemTimer = 0.5;
@@ -707,17 +729,103 @@ function startBossIntro() {
   haptic([80, 60, 80, 60, 200]);
 }
 
+// Vrací true, pokud laser zasáhl Pac-Mana.
 function updateBoss(dt) {
   const b = game.boss;
   if (b.invuln > 0) b.invuln = Math.max(0, b.invuln - dt);
-  const speed = bossSpeed() * (bossFleeing() ? CONFIG.BOSS_FLEE_MULT : 1);
-  moveEntity(b, speed * dt, bossDecide, null);
+  // Při nabíjení a střelbě laseru boss stojí na místě.
+  if (!b.laser) {
+    const speed = bossSpeed() * (bossFleeing() ? CONFIG.BOSS_FLEE_MULT : 1);
+    moveEntity(b, speed * dt, bossDecide, null);
+  }
 
   game.bossBeatTimer -= dt;
   if (game.bossBeatTimer <= 0) {
     Sound.bossBeat();
     game.bossBeatTimer = game.attackTimer > 0 ? 0.45 : 0.9;
   }
+  return updateLaser(b, dt);
+}
+
+// ---------- Laser bosse ----------
+// Cyklus: čekání (interval) → nabíjení (míří na hráče, na konci zamkne směr) → výstřel.
+// Paprsek letí od bosse směrem na Pac-Mana a zastaví se o první zeď.
+// Čekání mezi výstřely tak, aby od výstřelu k výstřelu uběhlo BOSS_LASER_INTERVAL sekund.
+function laserCooldown() {
+  return Math.max(0.5, CONFIG.BOSS_LASER_INTERVAL - CONFIG.BOSS_LASER_CHARGE - CONFIG.BOSS_LASER_FIRE);
+}
+
+function laserOrigin(b) {
+  return entityPos(b);
+}
+
+function aimLaser(b) {
+  const o = laserOrigin(b);
+  const p = entityPos(pac);
+  b.laser.angle = Math.atan2(p.y - o.y, p.x - o.x);
+  b.laser.len = laserLength(o, b.laser.angle);
+}
+
+function laserLength(o, angle) {
+  const cx = Math.cos(angle);
+  const cy = Math.sin(angle);
+  const step = 0.05;
+  let len = 0;
+  while (len < CONFIG.BOSS_LASER_MAX_LEN) {
+    const nx = o.x + cx * (len + step);
+    const ny = o.y + cy * (len + step);
+    if (nx < -0.5 || nx > COLS - 0.5) break;
+    if (!isOpen(Math.round(nx), Math.round(ny))) break;
+    len += step;
+  }
+  return len + 0.5; // paprsek vjede kousek do zdi, ať končí na její hraně
+}
+
+function laserHitsPac(b) {
+  const o = laserOrigin(b);
+  const p = entityPos(pac);
+  const cx = Math.cos(b.laser.angle);
+  const cy = Math.sin(b.laser.angle);
+  const along = (p.x - o.x) * cx + (p.y - o.y) * cy;
+  if (along < 0 || along > b.laser.len) return false;
+  const perp = Math.abs((p.x - o.x) * cy - (p.y - o.y) * cx);
+  return perp < CONFIG.BOSS_LASER_WIDTH / 2 + CONFIG.BOSS_LASER_HIT_PAD;
+}
+
+function updateLaser(b, dt) {
+  if (!b.laser) {
+    b.laserTimer -= dt;
+    if (b.laserTimer <= 0) {
+      b.laser = { phase: 'charge', t: CONFIG.BOSS_LASER_CHARGE, angle: 0, len: 0 };
+      aimLaser(b);
+      Sound.laserCharge();
+    }
+    return false;
+  }
+  const L = b.laser;
+  L.t -= dt;
+  if (L.phase === 'charge') {
+    if (L.t > CONFIG.BOSS_LASER_LOCK) aimLaser(b);
+    if (L.t <= 0) {
+      L.phase = 'fire';
+      L.t = CONFIG.BOSS_LASER_FIRE;
+      L.len = laserLength(laserOrigin(b), L.angle);
+      game.shake = Math.max(game.shake, 0.45);
+      Sound.laserFire();
+      haptic(90);
+    }
+    return false;
+  }
+  // výstřel
+  if (laserHitsPac(b)) {
+    killPac();
+    return true;
+  }
+  if (L.t <= 0) {
+    b.laser = null;
+    b.laserTimer = laserCooldown();
+  }
+  return false;
 }
 
 function hitBoss() {
@@ -725,6 +833,8 @@ function hitBoss() {
   const bp = entityPos(b);
   b.hp--;
   b.invuln = CONFIG.BOSS_INVULN;
+  b.laser = null;                              // zásah přeruší nabíjení laseru
+  b.laserTimer = laserCooldown();
   game.attackTimer = 0;
   game.attackItemTimer = CONFIG.ATTACK_SPAWN_DELAY;
   game.shake = 0.5;
@@ -933,6 +1043,8 @@ function resetActors() {
   if (game.boss) {
     placeBoss();
     game.boss.invuln = 0;
+    game.boss.laser = null;
+    game.boss.laserTimer = laserCooldown();
   }
 }
 
@@ -1061,7 +1173,7 @@ function updatePlay(dt) {
   for (const g of ghosts) {
     if (g.mode !== 'house') moveEntity(g, ghostSpeed(g) * dt, ghostDecide, null);
   }
-  if (game.boss) updateBoss(dt);
+  if (game.boss && updateBoss(dt)) return;
 
   // Kolize
   const pp = entityPos(pac);
@@ -1476,6 +1588,83 @@ function drawGhostAt(g, x, y) {
   }
 }
 
+function drawLaser() {
+  const L = game.boss.laser;
+  if (!L) return;
+  const o = laserOrigin(game.boss);
+  const ox = (o.x + 0.5) * T;
+  const oy = (o.y + 0.5) * T;
+  const len = L.len * T;
+
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.rotate(L.angle);
+  ctx.lineCap = 'round';
+
+  if (L.phase === 'charge') {
+    const p = 1 - L.t / CONFIG.BOSS_LASER_CHARGE;     // 0 → 1
+    const locked = L.t <= CONFIG.BOSS_LASER_LOCK;
+    const flick = Math.floor(game.time * (locked ? 24 : 10)) % 2;
+    // mířidlo
+    ctx.setLineDash([10, 8]);
+    ctx.lineDashOffset = -game.time * 60;
+    ctx.strokeStyle = locked ? (flick ? '#ffffff' : '#ff2d55') : 'rgba(255, 45, 85, 0.75)';
+    ctx.shadowColor = '#ff2d55';
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = locked ? 3 : 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(len, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // obrys budoucího paprsku
+    if (locked) {
+      ctx.fillStyle = 'rgba(255, 45, 85, 0.12)';
+      ctx.fillRect(0, -CONFIG.BOSS_LASER_WIDTH * T / 2, len, CONFIG.BOSS_LASER_WIDTH * T);
+    }
+    // nabíjecí koule
+    const r = T * (0.25 + 0.55 * p);
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.6);
+    glow.addColorStop(0, '#ffffff');
+    glow.addColorStop(0.35, '#ff2d55');
+    glow.addColorStop(0.7, 'rgba(45, 123, 255, 0.5)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(T * (CONFIG.BOSS_RADIUS + 0.45), 0, r * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    const fade = Math.min(1, L.t / 0.15);
+    const wobble = 1 + Math.sin(game.time * 60) * 0.12;
+    const w = CONFIG.BOSS_LASER_WIDTH * T * wobble;
+    ctx.globalAlpha = fade;
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = '#2d7bff';
+    ctx.strokeStyle = 'rgba(45, 123, 255, 0.55)';
+    ctx.lineWidth = w * 1.7;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(len, 0);
+    ctx.stroke();
+    ctx.shadowColor = '#ff2d55';
+    ctx.strokeStyle = '#ff2d55';
+    ctx.lineWidth = w;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = w * 0.35;
+    ctx.stroke();
+    // jiskry v místě dopadu
+    for (let i = 0; i < 6; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = Math.random() * T * 0.8;
+      ctx.fillStyle = i % 2 ? '#ffffff' : '#ff2d55';
+      ctx.fillRect(len + Math.cos(a) * d - 2, Math.sin(a) * d - 2, 4, 4);
+    }
+  }
+  ctx.restore();
+}
+
 function drawBoss() {
   const pos = entityPos(game.boss);
   drawWrapped(pos.x, x => drawBossAt(x, pos.y));
@@ -1632,7 +1821,10 @@ function render() {
   const hideEnemies = dyingLong || game.state === STATE.LEVEL_CLEAR;
   if (!hideEnemies) {
     ghosts.forEach(drawGhost);
-    if (game.boss) drawBoss();
+    if (game.boss) {
+      drawLaser();
+      drawBoss();
+    }
   }
   drawPac();
   drawEffects();

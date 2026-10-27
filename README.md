@@ -47,6 +47,9 @@ krátce zavibruje (kde to prohlížeč podporuje).
   duchové a hledá cestu k hráči přes BFS. Souboj: na mapě se objeví červeno-modrý blesk (útok na 7 s);
   dotkni se bosse → zásah. Po 3 zásazích je poražen (+500 b.) a vrátí se o 3 000 bodů později.
   Bez útoku dotek s bossem bere život.
+- **Laser The Mana** – každých 5 s boss zastaví a nabíjí velký laser: červené mířidlo sleduje hráče,
+  posledních 0,35 s se směr zamkne a bliká, pak vystřelí paprsek směrem na Pac-Mana. Paprsek se zastaví
+  o první zeď, takže se dá schovat za roh nebo po zamčení uhnout do boční chodby. Zásah bosse nabíjení přeruší.
 - **Duchové** se čtyřmi povahami: Lovec (pronásleduje), Věštec (předvídá směr), Stratég (kombinace),
   Bloudil (náhodný pohyb). Střídají rozptyl a honičku; po energii (velká tečka) se bojí a dají se sníst.
 - Tři životy, úrovně (po vysbírání teček +200 b. a další úroveň s rychlejšími duchy), pauza, GAME OVER,

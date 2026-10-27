@@ -1,0 +1,320 @@
+:root {
+  --bg: #000;
+  --panel: #040a1f;
+  --neon: #2d7bff;
+  --neon-soft: #8fd3ff;
+  --cyan: #00ffe1;
+  --red: #ff2d55;
+  --violet: #8a6bff;
+  --text: #d8ecff;
+  --muted: #5a76a8;
+  --font: "Press Start 2P", "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body {
+  background: radial-gradient(ellipse at 50% 40%, #050d2e 0%, #000 70%);
+}
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  gap: 6px;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: var(--stage-w);
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 2px solid var(--neon);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 0 14px rgba(45, 123, 255, 0.45), inset 0 0 10px rgba(45, 123, 255, 0.2);
+}
+
+.hud-item { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.label { font-size: 7px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.value { font-size: 12px; color: var(--neon-soft); text-shadow: 0 0 8px rgba(143, 211, 255, 0.7); white-space: nowrap; }
+
+.lives { display: flex; gap: 4px; min-height: 12px; }
+.life {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--neon-soft);
+  box-shadow: 0 0 6px var(--neon-soft);
+  clip-path: polygon(100% 22%, 50% 50%, 100% 78%, 100% 100%, 0 100%, 0 0, 100% 0);
+}
+
+.hud-btn {
+  font-size: 16px;
+  background: transparent;
+  border: 2px solid var(--neon);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.hud-btn:hover { box-shadow: 0 0 10px var(--neon); }
+
+/* ---------- Bonusy a boss ---------- */
+#statusbar {
+  width: var(--stage-w);
+  max-width: 100%;
+  min-height: 26px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 8px;
+}
+#bonuses { display: flex; gap: 6px; flex-wrap: wrap; }
+.muted { color: var(--muted); }
+
+.chip {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  box-shadow: 0 0 8px currentColor;
+}
+.chip b { font-weight: normal; color: #fff; }
+.chip i { position: absolute; left: 0; bottom: 0; height: 3px; background: currentColor; }
+.chip-cyan { color: var(--cyan); }
+.chip-red { color: var(--red); }
+.chip-blue { color: var(--violet); }
+
+#bossinfo { color: var(--muted); white-space: nowrap; }
+#bossinfo.active { color: var(--red); text-shadow: 0 0 8px var(--red); animation: pulse 0.6s infinite alternate; }
+
+@keyframes pulse { from { opacity: 0.6; } to { opacity: 1; } }
+
+/* ---------- Herní plocha ---------- */
+:root { --vh: 100vh; --stage-w: min(672px, calc(100vw - 32px), calc((var(--vh) - 120px) * 672 / 744)); }
+@supports (height: 100dvh) { :root { --vh: 100dvh; } }
+
+#stage {
+  position: relative;
+  width: var(--stage-w);
+  aspect-ratio: 672 / 744;
+  border-radius: 10px;
+  box-shadow: 0 0 24px rgba(45, 123, 255, 0.35);
+  touch-action: none;
+  container-type: inline-size;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: #000;
+}
+
+/* ---------- Překryvné obrazovky ---------- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  overflow-y: auto;
+  gap: clamp(8px, 2.4cqw, 16px);
+  padding: 16px;
+  text-align: center;
+  background: rgba(0, 3, 15, 0.86);
+  border-radius: 10px;
+  backdrop-filter: blur(2px);
+}
+.hidden { display: none !important; }
+
+.title {
+  margin: 0;
+  font-size: clamp(18px, 6.5cqw, 40px);
+  color: var(--neon-soft);
+  text-shadow: 0 0 6px var(--neon), 0 0 22px var(--neon), 0 0 40px var(--neon);
+  line-height: 1.2;
+}
+.title span {
+  display: block;
+  margin-top: 10px;
+  font-size: clamp(8px, 2.6cqw, 16px);
+  color: var(--red);
+  text-shadow: 0 0 8px var(--red), 0 0 20px rgba(45, 123, 255, 0.9);
+  letter-spacing: 2px;
+}
+
+h2 {
+  margin: 0;
+  font-size: clamp(20px, 5vw, 32px);
+  color: var(--neon-soft);
+  text-shadow: 0 0 10px var(--neon), 0 0 30px var(--neon);
+}
+.red { color: var(--red); text-shadow: 0 0 10px var(--red); }
+
+.boss-preview { display: flex; align-items: center; gap: 12px; font-size: 9px; line-height: 1.7; max-width: 380px; text-align: left; }
+.boss-preview img {
+  width: 64px; height: 64px;
+  object-fit: cover;
+  object-position: 50% 25%;
+  border-radius: 50%;
+  border: 3px solid var(--red);
+  box-shadow: 0 0 0 3px var(--neon), 0 0 18px var(--red), 0 0 30px var(--neon);
+  animation: wobble 1.2s ease-in-out infinite;
+}
+@keyframes wobble { 0%, 100% { transform: rotate(-6deg) scale(1); } 50% { transform: rotate(6deg) scale(1.08); } }
+
+.btn {
+  font-family: var(--font);
+  font-size: 14px;
+  color: #000;
+  background: var(--neon-soft);
+  border: none;
+  border-radius: 8px;
+  padding: 14px 26px;
+  cursor: pointer;
+  box-shadow: 0 0 12px var(--neon), 0 0 30px rgba(45, 123, 255, 0.6);
+  transition: transform 0.1s;
+}
+.btn:hover, .btn:focus-visible { transform: scale(1.06); outline: none; }
+.btn-ghost { background: transparent; color: var(--neon-soft); border: 2px solid var(--neon); font-size: 10px; padding: 10px 18px; }
+
+.help { list-style: none; margin: 0; padding: 0; font-size: 8px; line-height: 2.2; color: var(--text); }
+kbd {
+  font-family: var(--font);
+  font-size: 7px;
+  padding: 2px 5px;
+  border: 1px solid var(--neon);
+  border-radius: 4px;
+  color: var(--neon-soft);
+}
+.ico { display: inline-block; vertical-align: middle; margin-right: 2px; }
+.ico-dot { width: 5px; height: 5px; border-radius: 50%; background: #cfe8ff; }
+.ico-energy { width: 10px; height: 10px; border-radius: 50%; background: #eaf6ff; box-shadow: 0 0 6px #7fc4ff; }
+.ico-wall { width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+.ico-attack { width: 10px; height: 10px; transform: rotate(45deg); background: linear-gradient(90deg, var(--red) 50%, var(--neon) 50%); box-shadow: 0 0 6px var(--red); }
+
+.final { margin: 0; font-size: 14px; }
+.final b { color: var(--neon-soft); }
+.final.small { font-size: 9px; color: var(--muted); }
+.record { margin: 0; font-size: 12px; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); animation: pulse 0.4s infinite alternate; }
+.hint { margin: 0; font-size: 8px; color: var(--muted); }
+
+@media (max-width: 520px) {
+  .value { font-size: 9px; }
+  .label { font-size: 6px; }
+  #hud { padding: 6px 8px; gap: 6px; }
+  .hud-btn { font-size: 12px; padding: 2px 6px; }
+  #statusbar { font-size: 7px; }
+}
+
+/* ---------- Telefon a dotykové ovládání ---------- */
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+#app {
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+.hud-buttons { display: flex; gap: 6px; }
+
+#play-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+#touchpad { display: none; }
+.touch-only { display: none; }
+.touch .touch-only { display: list-item; }
+.touch .key-only { display: none; }
+
+#dpad {
+  --size: min(190px, 44vw);
+  position: relative;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  border: 2px solid var(--neon);
+  background: radial-gradient(circle, #071435 0%, #020617 70%);
+  box-shadow: 0 0 16px rgba(45, 123, 255, 0.5), inset 0 0 18px rgba(45, 123, 255, 0.25);
+  touch-action: none;
+}
+.arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: calc(var(--size) * 0.09) solid transparent;
+  filter: drop-shadow(0 0 6px var(--neon));
+  transition: transform 0.08s;
+  pointer-events: none;
+}
+.arrow-up { top: 8%; left: 50%; transform: translateX(-50%); border-bottom-color: var(--neon-soft); border-top-width: 0; }
+.arrow-down { bottom: 8%; left: 50%; transform: translateX(-50%); border-top-color: var(--neon-soft); border-bottom-width: 0; }
+.arrow-left { left: 8%; top: 50%; transform: translateY(-50%); border-right-color: var(--neon-soft); border-left-width: 0; }
+.arrow-right { right: 8%; top: 50%; transform: translateY(-50%); border-left-color: var(--neon-soft); border-right-width: 0; }
+.arrow.on { filter: drop-shadow(0 0 10px var(--cyan)) drop-shadow(0 0 4px #fff); }
+.arrow-up.on { border-bottom-color: var(--cyan); }
+.arrow-down.on { border-top-color: var(--cyan); }
+.arrow-left.on { border-right-color: var(--cyan); }
+.arrow-right.on { border-left-color: var(--cyan); }
+.dpad-center {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 22%; height: 22%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid rgba(45, 123, 255, 0.5);
+  pointer-events: none;
+}
+
+/* dotykové zařízení na výšku: bludiště nahoře, křížek pod ním */
+.touch #touchpad { display: flex; justify-content: center; }
+.touch #app { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); gap: 4px; }
+.touch {
+  --stage-w: min(672px, calc(100vw - 16px), calc((var(--vh) - 110px - min(190px, 44vw) - 30px) * 672 / 744));
+}
+
+/* dotykové zařízení na šířku: křížek vpravo od bludiště */
+@media (orientation: landscape) {
+  .touch #play-area { flex-direction: row; gap: 24px; }
+  .touch #dpad { --size: min(170px, 38vh); }
+  .touch { --stage-w: min(672px, calc(100vw - 260px), calc((var(--vh) - 96px) * 672 / 744)); }
+  .touch #hud, .touch #statusbar { width: min(100%, calc(var(--stage-w) + 220px)); }
+}
+.touch #app { min-height: var(--vh); }
+.touch #play-area { flex: 1; width: 100%; }
+.touch #touchpad { flex: 1; align-items: center; }
+@media (orientation: landscape) {
+  .touch #play-area { justify-content: center; }
+  .touch #touchpad { flex: 0 0 auto; }
+}

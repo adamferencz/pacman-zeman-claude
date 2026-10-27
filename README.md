@@ -3,6 +3,8 @@
 Arkádová hra inspirovaná Pac-Manem v modro-černém neonovém stylu. Čisté HTML5 + CSS3 + JavaScript
 (Canvas, `requestAnimationFrame`, Web Audio API), bez backendu a bez knihoven.
 
+**Hrát online:** https://adamferencz.github.io/pacman-zeman-claude/
+
 ## Spuštění
 
 Otevři `index.html` v moderním prohlížeči (Chrome, Edge, Firefox, Safari). Nic se neinstaluje.
